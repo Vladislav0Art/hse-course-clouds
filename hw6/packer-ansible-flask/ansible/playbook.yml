@@ -1,0 +1,121 @@
+---
+- name: configure nginx and flask application
+  hosts: all
+  become: no
+  gather_facts: yes
+  vars:
+    app_dir: /opt/flask-app
+    app_user: ubuntu
+
+  tasks:
+    - name: update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      become: yes
+
+    - name: install all packages
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-venv
+          - nginx
+        state: present
+      become: yes
+
+    - name: create app dir
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+      become: yes
+
+    - name: copy flask app
+      copy:
+        src: files/app.py
+        dest: "{{ app_dir }}/app.py"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+      become: yes
+
+    - name: create python venv
+      command: python3 -m venv "{{ app_dir }}/venv"
+      args:
+        creates: "{{ app_dir }}/venv/bin/activate"
+      become: yes
+      become_user: "{{ app_user }}"
+
+    - name: install flask in venv
+      pip:
+        name:
+          - flask
+          - gunicorn
+        virtualenv: "{{ app_dir }}/venv"
+        virtualenv_command: python3 -m venv
+      become: yes
+      become_user: "{{ app_user }}"
+
+    - name: copy systemd service file
+      copy:
+        src: files/flask-app.service
+        dest: /etc/systemd/system/flask-app.service
+        owner: root
+        group: root
+        mode: '0644'
+      become: yes
+
+    - name: reload systemd daemon
+      systemd:
+        daemon_reload: yes
+      become: yes
+
+    - name: enable and start flask app service
+      systemd:
+        name: flask-app
+        enabled: yes
+        state: started
+      become: yes
+
+    - name: copy nginx config
+      copy:
+        src: files/nginx.conf
+        dest: /etc/nginx/sites-available/flask-app
+        owner: root
+        group: root
+        mode: '0644'
+      become: yes
+
+    - name: remove default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      become: yes
+
+    - name: enable flask app nginx site
+      file:
+        src: /etc/nginx/sites-available/flask-app
+        dest: /etc/nginx/sites-enabled/flask-app
+        state: link
+      become: yes
+
+    - name: test nginx config
+      command: nginx -t
+      changed_when: false
+      become: yes
+
+    - name: enable and start nginx
+      systemd:
+        name: nginx
+        enabled: yes
+        state: started
+      become: yes
+
+    - name: restart nginx to apply changes
+      systemd:
+        name: nginx
+        state: restarted
+      become: yes
