@@ -1,25 +1,3 @@
-variable "zone" {
-  description = "Yandex Cloud zone"
-  type        = string
-  default     = "ru-central1-a"
-}
-variable "cloud_id" {
-  description = "Yandex Cloud ID"
-  type        = string
-  default     = ""
-}
-variable "folder_id" {
-  description = "Yandex Cloud Folder ID"
-  type        = string
-  default     = ""
-}
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  sensitive   = true
-  default     = "secure-pass-123"
-}
-
 data "yandex_client_config" "client" {}
 
 locals {
@@ -30,14 +8,14 @@ locals {
 # VPC
 resource "yandex_vpc_network" "app_network" {
   name        = "app-network"
-  description = "Network for the application"
+  description = "application network"
   folder_id   = local.folder_id
 }
 
 # subnet
 resource "yandex_vpc_subnet" "app_subnet" {
   name           = "app-subnet"
-  description    = "Subnet for application resources"
+  description    = "application resources subnet"
   folder_id      = local.folder_id
   zone           = var.zone
   network_id     = yandex_vpc_network.app_network.id
@@ -47,7 +25,7 @@ resource "yandex_vpc_subnet" "app_subnet" {
 # service account
 resource "yandex_iam_service_account" "app_sa" {
   name        = "app-service-account"
-  description = "service account for application resources (description)"
+  description = "service account of application resources (description)"
   folder_id   = local.folder_id
 }
 
@@ -86,7 +64,7 @@ resource "yandex_storage_bucket" "app_bucket" {
 # postgres
 resource "yandex_mdb_postgresql_cluster" "app_db" {
   name        = "app-database"
-  description = "PostgreSQL database for the application"
+  description = "postgres app db"
   environment = "PRODUCTION"
   network_id  = yandex_vpc_network.app_network.id
   folder_id   = local.folder_id
@@ -123,7 +101,7 @@ resource "yandex_mdb_postgresql_database" "app_database" {
 # VM
 resource "yandex_compute_instance" "app_vm" {
   name        = "app-server"
-  description = "Application web server"
+  description = "application web server"
   folder_id   = local.folder_id
   zone        = var.zone
 
@@ -184,11 +162,11 @@ output "bucket_name" {
   value       = yandex_storage_bucket.app_bucket.bucket
 }
 output "database_host" {
-  description = "postgres database host"
+  description = "postgres db host"
   value       = yandex_mdb_postgresql_cluster.app_db.host[0].fqdn
 }
 output "database_name" {
-  description = "postgres database name"
+  description = "postgres db name"
   value       = yandex_mdb_postgresql_database.app_database.name
 }
 output "service_account_id" {
